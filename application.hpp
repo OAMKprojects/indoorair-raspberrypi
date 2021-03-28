@@ -6,6 +6,7 @@
 #include <memory>
 #include <map>
 #include <signal.h>
+#include <algorithm>
 #include "serial.hpp"
 
 class Application
@@ -20,12 +21,29 @@ class Application
         int start();
 
     private:
-        void parseData(const uint8_t &data);
+        void parseData(const char *data);
+        void saveValue(bool more_data);
+        void clearParser();
+
+        struct data_parser {
+            enum levels {
+                none,
+                begin_read_name,
+                read_name,
+                begin_read_value,
+                read_value
+            };
+            int         level;
+            char        ch;
+            std::string temp_name;
+            std::string temp_value;
+            std::map<std::string, float>  values;
+        };
 
         std::unique_ptr<Serial>  serial;
         static Application      *instance;
-        std::map<std::string, float>  values;
-        bool running;
+        data_parser   parser;
+        bool          running;
 };
 
 #endif

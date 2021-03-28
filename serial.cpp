@@ -63,7 +63,7 @@ int Serial::readPort()
     }
     else if (num_bytes) {
         buffer[num_bytes] = '\0';
-        std::cout << buffer;
+        //std::cout << buffer;
     }
 
     return num_bytes;

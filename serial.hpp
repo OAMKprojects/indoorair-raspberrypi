@@ -27,7 +27,7 @@ class Serial
 
         int openPort(std::string port_name);
         int readPort();
-        uint8_t& getBufferAddress() {return buffer[0];}
+        uint8_t* getBufferAddress() {return buffer;}
 
     private:
         void printError(const int err_num);
