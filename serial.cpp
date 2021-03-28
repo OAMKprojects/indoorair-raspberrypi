@@ -11,7 +11,7 @@ void Serial::printError(const int err_num)
 {
     error_num = err_num;
     switch (error_num) {
-        case ERR_OPEN_PORT: perror("Error when openin serial port"); break;
+        case ERR_OPEN_PORT: perror("Error when opening serial port"); break;
         case ERR_GET_TCG: perror("Error when getting address"); break;
         case ERR_SET_TCG: perror("Error when setting address"); break;
         case ERR_READ: perror("Error when reading serial port"); break;
