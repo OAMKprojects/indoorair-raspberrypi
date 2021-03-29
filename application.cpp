@@ -30,9 +30,47 @@ void Application::signalHandler(int param)
     instance->running = false;
 }
 
+int Application::dbCallBack(void* data, int argc, char** argv, char** azColName)
+{
+    int i;
+    fprintf(stderr, "%s: ", (const char*)data);
+  
+    for (i = 0; i < argc; i++) {
+        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    }
+  
+    printf("\n");
+    return 0;
+}
+
+bool Application::openDatabase(const std::string db_name)
+{
+    int err = sqlite3_open(db_name.c_str(), &db);
+    if (err != SQLITE_OK) {
+        std::cout << "Error when opening database: " << sqlite3_errstr(err) << std::endl;
+        return false;
+    }
+
+    const char *query = "CREATE TABLE IF NOT EXISTS indoorair(id INTEGER PRIMARY KEY AUTOINCREMENT, temperature FLOAT, humidity FLOAT);";
+    sqlite3_exec(db, query, dbCallBack, NULL, NULL);
+
+    std::cout << "Database opened succesfully" << std::endl;
+    return true;
+}
+
+void Application::saveDataDB()
+{
+    char query[256];
+    sprintf(query, "INSERT INTO indoorair(temperature, humidity) VALUES('%f', '%f');",
+            parser.values["humidity"], parser.values["temperature"]);
+    sqlite3_exec(db, query, dbCallBack, NULL, NULL);
+}
+
 int Application::init(const std::string port_name)
 {
     if (serial->openPort(port_name) != 0) return -1;
+    db_save = openDatabase(DATABASE_FILE);
+
     std::cout << "Server inited succesfully" << std::endl;
     return 0;
 }
@@ -75,16 +113,21 @@ void Application::saveValue(bool more_data)
         num = (float)std::stod(parser.temp_value);
     }
     catch (...){
-        clearParser();
+        parser.temp_name = "";
+        parser.temp_value = "";
         return;
     }
 
     parser.values.insert(std::pair<std::string, float>(parser.temp_name, num));
+    parser.temp_name = "";
+    parser.temp_value = "";
     if (more_data) return;
+    if (db_save) saveDataDB();
 
     for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
         std::cout << item->first << " = " << item->second << std::endl;
     }
+
     clearParser();
 }
 
