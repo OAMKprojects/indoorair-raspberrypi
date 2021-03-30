@@ -53,7 +53,7 @@ void Application::debug()
         return;
     }
 
-    const char *query = "SELECT * FROM indoorair;";
+    const char *query = "SELECT DATETIME(time, 'localtime') as time, temperature, humidity FROM indoorair;";
     searching = true;
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
     while(searching);
@@ -67,7 +67,11 @@ bool Application::openDatabase(const std::string db_name)
         return false;
     }
 
-    const char *query = "CREATE TABLE IF NOT EXISTS indoorair(id INTEGER PRIMARY KEY AUTOINCREMENT, temperature DECIMAL(3, 1), humidity DECIMAL(3, 1));";
+    const char *query = "CREATE TABLE IF NOT EXISTS indoorair"
+                        "(id INTEGER PRIMARY KEY AUTOINCREMENT"
+                        ", temperature DECIMAL(3, 1)"
+                        ", humidity DECIMAL(3, 1)"
+                        ", time ts TIMESTAMP DEFAULT 'localtime');";
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
 
     std::cout << "Database opened succesfully" << std::endl;
