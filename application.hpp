@@ -23,6 +23,7 @@ class Application
 
         int init(const std::string port_name);
         int start();
+        void debug();
 
     private:
         bool openDatabase(const std::string db_name);
@@ -48,6 +49,7 @@ class Application
 
         std::unique_ptr<Serial>  serial;
         static Application      *instance;
+        static bool   searching;
         data_parser   parser;
         bool          running;
         bool          db_save;

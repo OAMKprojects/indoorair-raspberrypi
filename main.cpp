@@ -11,6 +11,11 @@ int main(int argv, char **args)
     std::string port_name = args[1];
     Application app;
 
+    if (port_name == "debug") {
+        app.debug();
+        return 0;
+    }
+
     if (app.init(port_name) < 0) return -1;
 
     app.start();

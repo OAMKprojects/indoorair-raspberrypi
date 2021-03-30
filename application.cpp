@@ -1,6 +1,7 @@
 #include "application.hpp"
 
 Application  *Application::instance;
+bool          Application::searching;
 
 Application::Application() 
 {
@@ -33,14 +34,29 @@ void Application::signalHandler(int param)
 int Application::dbCallBack(void* data, int argc, char** argv, char** azColName)
 {
     int i;
-    fprintf(stderr, "%s: ", (const char*)data);
+    //fprintf(stderr, "%s: ", (const char*)data);
   
     for (i = 0; i < argc; i++) {
         printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
     }
   
     printf("\n");
+    searching = false;
     return 0;
+}
+
+void Application::debug()
+{
+    int err = sqlite3_open(DATABASE_FILE, &db);
+    if (err != SQLITE_OK) {
+        std::cout << "Error when opening database: " << sqlite3_errstr(err) << std::endl;
+        return;
+    }
+
+    const char *query = "SELECT * FROM indoorair;";
+    searching = true;
+    sqlite3_exec(db, query, dbCallBack, NULL, NULL);
+    while(searching);
 }
 
 bool Application::openDatabase(const std::string db_name)
@@ -51,7 +67,7 @@ bool Application::openDatabase(const std::string db_name)
         return false;
     }
 
-    const char *query = "CREATE TABLE IF NOT EXISTS indoorair(id INTEGER PRIMARY KEY AUTOINCREMENT, temperature FLOAT, humidity FLOAT);";
+    const char *query = "CREATE TABLE IF NOT EXISTS indoorair(id INTEGER PRIMARY KEY AUTOINCREMENT, temperature DECIMAL(3, 1), humidity DECIMAL(3, 1));";
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
 
     std::cout << "Database opened succesfully" << std::endl;
@@ -61,8 +77,8 @@ bool Application::openDatabase(const std::string db_name)
 void Application::saveDataDB()
 {
     char query[256];
-    sprintf(query, "INSERT INTO indoorair(temperature, humidity) VALUES('%f', '%f');",
-            parser.values["humidity"], parser.values["temperature"]);
+    sprintf(query, "INSERT INTO indoorair(temperature, humidity) VALUES('%.1f', '%.1f');",
+            parser.values["temperature"], parser.values["humidity"]);
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
 }
 
