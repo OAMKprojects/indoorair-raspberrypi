@@ -18,6 +18,14 @@ int main(int argv, char **args)
 
     if (app.init(port_name) < 0) return -1;
 
+    #ifdef ADMIN_APP
+    if (argv == 3) {
+        if (strcmp(args[2], "admin") == 0) {
+            app.setAdmin();
+        }
+    }
+    #endif
+
     app.start();
 
     return 0;
