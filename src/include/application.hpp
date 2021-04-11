@@ -8,7 +8,14 @@
 #include <signal.h>
 #include <algorithm>
 #include <sqlite3.h>
+#include <algorithm>
 #include "serial.hpp"
+
+#ifdef ADMIN_APP
+#include <thread>
+#include "server.hpp"
+#define PORT_NUMBER    8080
+#endif
 
 #define DATABASE_FILE   "indoorair.db"
 
@@ -24,6 +31,10 @@ class Application
         int init(const std::string port_name);
         int start();
         void debug();
+
+        #ifdef ADMIN_APP
+        void setAdmin();
+        #endif
 
     private:
         bool openDatabase(const std::string db_name);
@@ -44,6 +55,7 @@ class Application
             char        ch;
             std::string temp_name;
             std::string temp_value;
+            std::string temp_string;
             std::map<std::string, float>  values;
         };
 
@@ -54,6 +66,12 @@ class Application
         bool          running;
         bool          db_save;
         sqlite3      *db;
+
+        #ifdef ADMIN_APP
+        std::unique_ptr<Server>  server;
+        std::thread              thread_server;
+        bool admin;
+        #endif
 };
 
 #endif

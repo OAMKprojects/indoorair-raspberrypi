@@ -16,11 +16,20 @@ Application::~Application()
     
 }
 
+#ifdef ADMIN_APP
+void Application::setAdmin()
+{
+    admin = true;
+    server.reset(new Server(PORT_NUMBER));
+}
+#endif
+
 void Application::clearParser()
 {
     parser.level = data_parser::none;
     parser.temp_name = "";
     parser.temp_value = "";
+    parser.temp_string = "";
     parser.values.clear();
 }
 
@@ -29,6 +38,12 @@ void Application::signalHandler(int param)
     std::cout << std::flush;
     std::cout << "Got SIGINT, Exiting" << std::endl;
     instance->running = false;
+
+    #ifdef ADMIN_APP
+    if (instance->admin) {
+        instance->server->stop();
+    }
+    #endif
 }
 
 int Application::dbCallBack(void* data, int argc, char** argv, char** azColName)
@@ -98,6 +113,8 @@ int Application::init(const std::string port_name)
 void Application::parseData(const char *data)
 {
     int i = 0;
+    parser.temp_string += data;
+
     while((parser.ch = data[i++]) != '\0') {
         switch(parser.level) {
             case data_parser::none:
@@ -145,8 +162,18 @@ void Application::saveValue(bool more_data)
     if (db_save) saveDataDB();
 
     for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
-        std::cout << item->first << " = " << item->second << std::endl;
+        std::cout << item->first << " = " << item->second << "  ";
     }
+
+    std::cout << std::endl;
+
+    #ifdef ADMIN_APP
+    if (admin) {
+        parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\n'), parser.temp_string.end());
+        parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\r'), parser.temp_string.end());
+        server->setMessage(parser.temp_string);
+    }
+    #endif
 
     clearParser();
 }
@@ -160,6 +187,12 @@ int Application::start()
 
     std::cout << "Server is starting" << std::endl;
 
+    #ifdef ADMIN_APP
+    if (admin) {
+        thread_server = std::thread(&Server::start, server.get());
+    }
+    #endif
+
     while(running) {
 
         read_bytes = serial->readPort();
@@ -168,8 +201,16 @@ int Application::start()
             running = false;
             return -1;
         }
-        else if (read_bytes) parseData((char *)serial->getBufferAddress());
+        else if (read_bytes) {
+            parseData(reinterpret_cast<const char *>(serial->getBufferAddress()));
+        }
     }
+
+    #ifdef ADMIN_APP
+    if (admin) {
+        thread_server.join();
+    }
+    #endif
 
     return 0;
 }

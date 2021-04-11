@@ -11,13 +11,13 @@
 #include <unistd.h>
 #include <error.h>
 
-#define BAUD_RATE       B9600
-#define BUFFER_SIZE     256
+#define BAUD_RATE        B9600
+#define _BUFFER_SIZE     256
 
-#define ERR_OPEN_PORT   1
-#define ERR_GET_TCG     2
-#define ERR_SET_TCG     3
-#define ERR_READ        4
+#define _ERR_OPEN_PORT   1
+#define _ERR_GET_TCG     2
+#define _ERR_SET_TCG     3
+#define _ERR_READ        4
 
 class Serial
 {
@@ -34,7 +34,7 @@ class Serial
 
         int port_num;
         int error_num;
-        uint8_t buffer[BUFFER_SIZE];
+        uint8_t buffer[_BUFFER_SIZE];
 };
 
 #endif
