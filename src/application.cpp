@@ -22,6 +22,44 @@ void Application::setAdmin()
     admin = true;
     server.reset(new Server(PORT_NUMBER));
 }
+
+void Application::setValues(std::string &json_str)
+{
+    parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\n'), parser.temp_string.end());
+    parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\r'), parser.temp_string.end());
+
+    json_str += "{\"values\":{";// + parser.temp_string;
+    std::string num_str;
+
+    for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
+        num_str = std::to_string(item->second);
+        json_str += "\"" + item->first + "\"" + ":" + num_str.substr(0, num_str.find(".") + 2) + ",";
+    }
+
+    auto time_now = std::chrono::steady_clock::now();
+    int time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_start).count();
+
+    std::string time_str;
+    int tmp_t;
+
+    if ((tmp_t = time_elapsed / 3600)) {
+        if (!(tmp_t / 10)) time_str += "0";
+        time_str += std::to_string(tmp_t) + ":";
+    }
+    else time_str += "00:";
+
+    if ((tmp_t = (time_elapsed / 60) % 60)) {
+        if (!(tmp_t / 10)) time_str += "0";
+        time_str += std::to_string(tmp_t) + ":";
+    }
+    else time_str += "00:";
+
+    tmp_t = time_elapsed % 60;
+    if (!(tmp_t / 10)) time_str += "0";
+    time_str += std::to_string(tmp_t);
+
+    json_str += "\"Uptime\":\"" + time_str + "\"}}";
+}
 #endif
 
 void Application::clearParser()
@@ -159,7 +197,7 @@ void Application::saveValue(bool more_data)
     parser.temp_name = "";
     parser.temp_value = "";
     if (more_data) return;
-    if (db_save) saveDataDB();
+    //if (db_save) saveDataDB();
 
     for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
         std::cout << item->first << " = " << item->second << "  ";
@@ -169,9 +207,9 @@ void Application::saveValue(bool more_data)
 
     #ifdef ADMIN_APP
     if (admin) {
-        parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\n'), parser.temp_string.end());
-        parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\r'), parser.temp_string.end());
-        server->setMessage(parser.temp_string);
+        std::string json_string;
+        setValues(json_string);
+        server->setMessage(json_string);
     }
     #endif
 
@@ -189,6 +227,7 @@ int Application::start()
 
     #ifdef ADMIN_APP
     if (admin) {
+        time_start = std::chrono::steady_clock::now();
         thread_server = std::thread(&Server::start, server.get());
     }
     #endif

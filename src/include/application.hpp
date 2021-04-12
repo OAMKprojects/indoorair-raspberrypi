@@ -13,7 +13,9 @@
 
 #ifdef ADMIN_APP
 #include <thread>
+#include <chrono>
 #include "server.hpp"
+
 #define PORT_NUMBER    8080
 #endif
 
@@ -43,6 +45,10 @@ class Application
         void saveDataDB();
         void clearParser();
 
+        #ifdef ADMIN_APP
+        void setValues(std::string &json_str);
+        #endif
+
         struct data_parser {
             enum levels {
                 none,
@@ -70,6 +76,7 @@ class Application
         #ifdef ADMIN_APP
         std::unique_ptr<Server>  server;
         std::thread              thread_server;
+        std::chrono::time_point<std::chrono::steady_clock> time_start;
         bool admin;
         #endif
 };
