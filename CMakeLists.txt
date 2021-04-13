@@ -5,7 +5,6 @@ find_package (SQLite3 REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 
-add_definitions(-DADMIN_APP)
 add_executable(indoorair-server ${SOURCES})
 
 include_directories(${SQLite3_INCLUDE_DIRS} src/include)

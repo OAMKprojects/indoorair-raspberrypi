@@ -9,6 +9,10 @@ Application::Application()
     instance = this;
     
     clearParser();
+
+    #ifdef ADMIN_APP
+    admin = false;
+    #endif
 }
 
 Application::~Application()
