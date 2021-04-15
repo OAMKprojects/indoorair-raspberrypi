@@ -14,9 +14,13 @@ create new build directory
 
     cd build
 
-configure cmake files
+configure cmake files without admin app
 
     cmake ../
+    
+configure camke with admin app
+
+    cmake -DADMIN=ON ../
 
 build project
 
@@ -28,6 +32,10 @@ but you can check it in under /dev/-directory what file shows up when plugging n
 run program (read values from serial port and save in database)
 
     sudo ./indoorair-server ttyACM0
+    
+run program with admin app extensin (require compiled with option ADMIN=ON)
+
+    sudo ./indoorair-server ttyACM0 admin
 
 show database entries in terminal
 
