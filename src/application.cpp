@@ -7,6 +7,7 @@ Application::Application()
 {
     serial.reset(new Serial());
     instance = this;
+    saving_time = DEFAULT_SAVE_TIME;
     
     clearParser();
 
@@ -32,37 +33,45 @@ void Application::setValues(std::string &json_str)
     parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\n'), parser.temp_string.end());
     parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\r'), parser.temp_string.end());
 
-    json_str += "{\"values\":{";// + parser.temp_string;
+    json_str += "{\"values\":{";
     std::string num_str;
+
+    auto time_now = std::chrono::steady_clock::now();
+    long time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_start).count();
+
+    json_str += "\"uptime\":\"" + getTimeString(time_elapsed) + "\",";
 
     for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
         num_str = std::to_string(item->second);
         json_str += "\"" + item->first + "\"" + ":" + num_str.substr(0, num_str.find(".") + 2) + ",";
     }
 
-    auto time_now = std::chrono::steady_clock::now();
-    int time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_start).count();
+    json_str.pop_back();
+    json_str += "},\"controls\":{\"saving time\":\"" + getTimeString(saving_time) + "\"}}";
+}
 
+std::string Application::getTimeString(long seconds)
+{
     std::string time_str;
     int tmp_t;
 
-    if ((tmp_t = time_elapsed / 3600)) {
+    if ((tmp_t = seconds / 3600)) {
         if (!(tmp_t / 10)) time_str += "0";
         time_str += std::to_string(tmp_t) + ":";
     }
     else time_str += "00:";
 
-    if ((tmp_t = (time_elapsed / 60) % 60)) {
+    if ((tmp_t = (seconds / 60) % 60)) {
         if (!(tmp_t / 10)) time_str += "0";
         time_str += std::to_string(tmp_t) + ":";
     }
     else time_str += "00:";
 
-    tmp_t = time_elapsed % 60;
+    tmp_t = seconds % 60;
     if (!(tmp_t / 10)) time_str += "0";
     time_str += std::to_string(tmp_t);
 
-    json_str += "\"Uptime\":\"" + time_str + "\"}}";
+    return time_str;
 }
 #endif
 
@@ -201,7 +210,15 @@ void Application::saveValue(bool more_data)
     parser.temp_name = "";
     parser.temp_value = "";
     if (more_data) return;
-    //if (db_save) saveDataDB();
+    if (db_save) {
+        auto time_now = std::chrono::steady_clock::now();
+        int time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_save).count();
+        if (time_elapsed >= saving_time) {
+            time_save = time_now;
+            std::cout << "Saving..." << std::endl;
+            //saveDataDB();
+        }
+    }
 
     for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
         std::cout << item->first << " = " << item->second << "  ";
@@ -228,10 +245,10 @@ int Application::start()
     int read_bytes = 0;
 
     std::cout << "Server is starting" << std::endl;
+    time_start = std::chrono::steady_clock::now();
 
     #ifdef ADMIN_APP
     if (admin) {
-        time_start = std::chrono::steady_clock::now();
         thread_server = std::thread(&Server::start, server.get());
     }
     #endif
