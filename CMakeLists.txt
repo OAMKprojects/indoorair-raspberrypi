@@ -5,6 +5,11 @@ find_package (SQLite3 REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 
+option(ADMIN "Admin app" OFF)
+if(ADMIN)
+    add_definitions(-DADMIN_APP)
+endif(ADMIN)
+
 add_executable(indoorair-server ${SOURCES})
 
 include_directories(${SQLite3_INCLUDE_DIRS} src/include)

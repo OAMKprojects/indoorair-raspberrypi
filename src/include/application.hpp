@@ -9,17 +9,18 @@
 #include <algorithm>
 #include <sqlite3.h>
 #include <algorithm>
+#include <chrono>
 #include "serial.hpp"
 
 #ifdef ADMIN_APP
 #include <thread>
-#include <chrono>
 #include "server.hpp"
 
 #define PORT_NUMBER    8080
 #endif
 
-#define DATABASE_FILE   "indoorair.db"
+#define DATABASE_FILE       "indoorair.db"
+#define DEFAULT_SAVE_TIME   10
 
 class Application
 {
@@ -47,6 +48,7 @@ class Application
 
         #ifdef ADMIN_APP
         void setValues(std::string &json_str);
+        std::string getTimeString(long seconds);
         #endif
 
         struct data_parser {
@@ -65,18 +67,20 @@ class Application
             std::map<std::string, float>  values;
         };
 
+        std::chrono::time_point<std::chrono::steady_clock> time_start;
+        std::chrono::time_point<std::chrono::steady_clock> time_save;
         std::unique_ptr<Serial>  serial;
         static Application      *instance;
         static bool   searching;
         data_parser   parser;
         bool          running;
         bool          db_save;
+        long          saving_time;
         sqlite3      *db;
 
         #ifdef ADMIN_APP
         std::unique_ptr<Server>  server;
         std::thread              thread_server;
-        std::chrono::time_point<std::chrono::steady_clock> time_start;
         bool admin;
         #endif
 };
