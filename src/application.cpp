@@ -137,7 +137,7 @@ bool Application::openDatabase(const std::string db_name)
                         "(id INTEGER PRIMARY KEY AUTOINCREMENT"
                         ", temperature DECIMAL(3, 1)"
                         ", humidity DECIMAL(3, 1)"
-                        ", time ts TIMESTAMP DEFAULT 'localtime');";
+                        ", time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);";
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
 
     std::cout << "Database opened succesfully" << std::endl;
@@ -172,10 +172,10 @@ void Application::parseData(const char *data)
                 if (parser.ch == '{') parser.level = data_parser::begin_read_name;
                 break;
             case data_parser::begin_read_name:
-                if (parser.ch == '"') parser.level = data_parser::read_name;
+                if (parser.ch == '\"') parser.level = data_parser::read_name;
                 break;
             case data_parser::read_name:
-                if (parser.ch == '"') parser.level = data_parser::begin_read_value;
+                if (parser.ch == '\"') parser.level = data_parser::begin_read_value;
                 else parser.temp_name += parser.ch;
                 break;
             case data_parser::begin_read_value:
@@ -216,7 +216,7 @@ void Application::saveValue(bool more_data)
         if (time_elapsed >= saving_time) {
             time_save = time_now;
             std::cout << "Saving..." << std::endl;
-            //saveDataDB();
+            saveDataDB();
         }
     }
 
