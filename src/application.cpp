@@ -41,13 +41,15 @@ void Application::setValues(std::string &json_str)
 
     json_str += "\"uptime\":\"" + getTimeString(time_elapsed) + "\",";
 
-    for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
+    for (auto item = parser.values.rbegin(); item != parser.values.rend(); item++) {
         num_str = std::to_string(item->second);
         json_str += "\"" + item->first + "\"" + ":" + num_str.substr(0, num_str.find(".") + 2) + ",";
     }
 
     json_str.pop_back();
-    json_str += "},\"controls\":{\"saving time\":\"" + getTimeString(saving_time) + "\"}}";
+    json_str += "},\"controls\":{\"saving time\":[{\"value\":\"" + getTimeString(saving_time) + "\",\"type\":\"time\"}],";
+    json_str += "\"restart nucleo\":[{\"value\":\"false\",\"type\":\"boolean\"}],";
+    json_str += "\"clear database\":[{\"value\":\"false\",\"type\":\"boolean\"}]}}";
 }
 
 std::string Application::getTimeString(long seconds)
@@ -216,7 +218,7 @@ void Application::saveValue(bool more_data)
         if (time_elapsed >= saving_time) {
             time_save = time_now;
             std::cout << "Saving..." << std::endl;
-            saveDataDB();
+            //saveDataDB();
         }
     }
 
