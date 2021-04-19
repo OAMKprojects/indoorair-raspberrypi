@@ -40,39 +40,44 @@ class Application
         #endif
 
     private:
-        bool openDatabase(const std::string db_name);
-        void parseData(const char *data);
-        void saveValue(bool more_data);
-        void saveDataDB();
-        void clearParser();
 
-        #ifdef ADMIN_APP
-        void setValues(std::string &json_str);
-        std::string getTimeString(long seconds);
-        #endif
-
-        struct data_parser {
+         struct data_parser {
             enum levels {
                 none,
                 begin_read_name,
                 read_name,
                 begin_read_value,
-                read_value
+                read_value,
+                read_string
             };
             int         level;
             char        ch;
             std::string temp_name;
             std::string temp_value;
             std::string temp_string;
-            std::map<std::string, float>  values;
+            std::map<std::string, float> values;
+            std::map<std::string, std::string> strings;
         };
+
+        bool openDatabase(const std::string db_name);
+        void parseData(data_parser &parser, const char *data);
+        void saveValue(data_parser &parser, bool more_data);
+        void saveString(data_parser &parser, bool more_data);
+        void endParsing(data_parser &parser);
+        void saveDataDB();
+        void clearParser(data_parser &parser);
+
+        #ifdef ADMIN_APP
+        void setValues(std::string &json_str);
+        std::string getTimeString(long seconds);
+        #endif
 
         std::chrono::time_point<std::chrono::steady_clock> time_start;
         std::chrono::time_point<std::chrono::steady_clock> time_save;
         std::unique_ptr<Serial>  serial;
         static Application      *instance;
         static bool   searching;
-        data_parser   parser;
+        data_parser   main_parser;
         bool          running;
         bool          db_save;
         long          saving_time;
@@ -81,6 +86,7 @@ class Application
         #ifdef ADMIN_APP
         std::unique_ptr<Server>  server;
         std::thread              thread_server;
+        data_parser              second_parser;
         bool admin;
         #endif
 };
