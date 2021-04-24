@@ -8,11 +8,14 @@ Application::Application()
     serial.reset(new Serial());
     instance = this;
     saving_time = DEFAULT_SAVE_TIME;
+    verbose_level = 0;
     
-    clearParser();
+    clearParser(main_parser);
 
     #ifdef ADMIN_APP
     admin = false;
+    control_update = true;
+    clearParser(second_parser);
     #endif
 }
 
@@ -25,13 +28,14 @@ Application::~Application()
 void Application::setAdmin()
 {
     admin = true;
+    verbose_level = 1;
     server.reset(new Server(PORT_NUMBER));
 }
 
 void Application::setValues(std::string &json_str)
 {
-    parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\n'), parser.temp_string.end());
-    parser.temp_string.erase(std::remove(parser.temp_string.begin(), parser.temp_string.end(), '\r'), parser.temp_string.end());
+    main_parser.temp_string.erase(std::remove(main_parser.temp_string.begin(), main_parser.temp_string.end(), '\n'), main_parser.temp_string.end());
+    main_parser.temp_string.erase(std::remove(main_parser.temp_string.begin(), main_parser.temp_string.end(), '\r'), main_parser.temp_string.end());
 
     json_str += "{\"values\":{";
     std::string num_str;
@@ -41,13 +45,18 @@ void Application::setValues(std::string &json_str)
 
     json_str += "\"uptime\":\"" + getTimeString(time_elapsed) + "\",";
 
-    for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
+    for (auto item = main_parser.values.rbegin(); item != main_parser.values.rend(); item++) {
         num_str = std::to_string(item->second);
         json_str += "\"" + item->first + "\"" + ":" + num_str.substr(0, num_str.find(".") + 2) + ",";
     }
 
     json_str.pop_back();
-    json_str += "},\"controls\":{\"saving time\":\"" + getTimeString(saving_time) + "\"}}";
+    if (control_update) {
+        json_str += "},\"controls\":{\"saving time\":[{\"value\":\"" + getTimeString(saving_time) + "\",\"type\":\"time\"}],";
+        json_str += "\"restart nucleo\":[{\"value\":\"false\",\"type\":\"boolean\"}],";
+        json_str += "\"clear database\":[{\"value\":\"false\",\"type\":\"boolean\"}]";
+    }
+    json_str += "}}";
 }
 
 std::string Application::getTimeString(long seconds)
@@ -73,15 +82,102 @@ std::string Application::getTimeString(long seconds)
 
     return time_str;
 }
+
+int Application::addSeconds(const std::string &time_str, int time_level)
+{
+    constexpr const int HOURS   = 0;
+    constexpr const int MINUTES = 1;
+    constexpr const int SECONDS = 2;
+
+    int num = 0;
+    try {
+        num = std::stod(time_str);
+
+        switch (time_level)
+        {
+            case HOURS: num *= 3600; break;
+            case MINUTES: num *= 60; break;
+        }
+    }
+    catch (...){
+    }
+    return num;
+}
+
+void Application::setTimeFromString(const std::string &time_str)
+{
+    std::string t_str;
+    int time_level = 0;
+    int temp_time = 0;
+
+    for(auto &ch : time_str) {
+        if (ch == ':') {
+            temp_time += addSeconds(t_str, time_level);
+            t_str = "";
+            ++time_level;
+        }
+        else t_str += ch;
+    }
+
+    temp_time += addSeconds(t_str, time_level);
+    if (temp_time) {
+        if ((saving_time = temp_time) > MAX_SAVE_TIME) saving_time = MAX_SAVE_TIME;
+        printMessage(1, "Setting new saving time: " + getTimeString(saving_time));
+    }
+    else printMessage(1, "Invalid time format");
+}
+
+void Application::checkAdminCommands(data_parser &parser)
+{
+    std::map<std::string, std::string>::iterator item;
+
+    printMessage(1, "Admin commands: ", false);
+    for (item = parser.strings.begin(); item != parser.strings.end(); item++) {
+        printMessage(1, item->first + " = " + item->second + " | ", false);
+    }
+    printMessage(1, "");
+
+    if ((item = parser.strings.find("controls updated")) != parser.strings.end()) {
+        if (item->second == "true") control_update = false;
+        else control_update = true;
+    }
+    
+    if ((item = parser.strings.find("clear database")) != parser.strings.end()) {
+        if (item->second == "true") {
+            sqlite3_exec(db, "DELETE FROM indoorair", NULL, NULL, NULL);
+            printMessage(1, "Database entries cleared");
+            control_update = true;
+        }
+    }
+    if ((item = parser.strings.find("saving time")) != parser.strings.end()) {
+        setTimeFromString(item->second);
+        control_update = true;
+    }
+    if ((item = parser.strings.find("restart nucleo")) != parser.strings.end()) {
+        if (item->second == "true") {
+            printMessage(1, "Restarting nucleo...");
+            control_update = true;
+        }
+    }
+}
 #endif
 
-void Application::clearParser()
+void Application::printMessage(int verbose, const std::string &message, bool new_line)
+{
+    if (verbose_level <= verbose) {
+        std::cout << message;
+        if (new_line) std::cout << std::endl;
+    }
+}
+
+void Application::clearParser(data_parser &parser)
 {
     parser.level = data_parser::none;
     parser.temp_name = "";
     parser.temp_value = "";
     parser.temp_string = "";
     parser.values.clear();
+    parser.strings.clear();
 }
 
 void Application::signalHandler(int param)
@@ -148,7 +244,7 @@ void Application::saveDataDB()
 {
     char query[256];
     sprintf(query, "INSERT INTO indoorair(temperature, humidity) VALUES('%.1f', '%.1f');",
-            parser.values["temperature"], parser.values["humidity"]);
+            main_parser.values["temperature"], main_parser.values["humidity"]);
     sqlite3_exec(db, query, dbCallBack, NULL, NULL);
 }
 
@@ -157,14 +253,15 @@ int Application::init(const std::string port_name)
     if (serial->openPort(port_name) != 0) return -1;
     db_save = openDatabase(DATABASE_FILE);
 
-    std::cout << "Server inited succesfully" << std::endl;
+    printMessage(1, "Server inited succesfully");
     return 0;
 }
 
-void Application::parseData(const char *data)
+void Application::parseData(data_parser &parser, const char *data)
 {
     int i = 0;
     parser.temp_string += data;
+    //if (&parser != &main_parser) std::cout << parser.temp_string << std::endl;
 
     while((parser.ch = data[i++]) != '\0') {
         switch(parser.level) {
@@ -182,59 +279,83 @@ void Application::parseData(const char *data)
                 if (parser.ch == ':') parser.level = data_parser::read_value;
                 break;
             case data_parser::read_value:
-                if (parser.ch == ',') saveValue(true);
-                else if (parser.ch == '}') saveValue(false);
+                if (parser.ch == ',') saveValue(parser, true);
+                else if (parser.ch == '}') saveValue(parser, false);
+                else if (parser.ch == '\"') parser.level = data_parser::read_string;
+                else parser.temp_value += parser.ch;
+                break;
+            case data_parser::read_string:
+                if (parser.ch == '\"') saveString(parser, true);
+                else if (parser.ch == '}') endParsing(parser);
+                else if (parser.ch == ',') parser.level = data_parser::begin_read_name;
                 else parser.temp_value += parser.ch;
                 break;
         }
     }
 }
 
-void Application::saveValue(bool more_data)
+void Application::saveValue(data_parser &parser, bool more_data)
 {
     parser.temp_value.erase(std::remove(parser.temp_value.begin(), parser.temp_value.end(), ' '), parser.temp_value.end());
-    if (more_data) parser.level = data_parser::begin_read_name;
-    else parser.level = data_parser::none;
 
     float num;
     try {
         num = (float)std::stod(parser.temp_value);
+        parser.values.insert(std::pair<std::string, float>(parser.temp_name, num));
+        parser.temp_name = "";
+        parser.temp_value = "";
     }
     catch (...){
         parser.temp_name = "";
         parser.temp_value = "";
-        return;
     }
 
-    parser.values.insert(std::pair<std::string, float>(parser.temp_name, num));
+    if (more_data) parser.level = data_parser::begin_read_name;
+        else endParsing(parser);
+}
+
+void Application::saveString(data_parser &parser, bool more_data)
+{
+    parser.strings.insert(std::pair<std::string, std::string>(parser.temp_name, parser.temp_value));
     parser.temp_name = "";
     parser.temp_value = "";
-    if (more_data) return;
-    if (db_save) {
-        auto time_now = std::chrono::steady_clock::now();
-        int time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_save).count();
-        if (time_elapsed >= saving_time) {
-            time_save = time_now;
-            std::cout << "Saving..." << std::endl;
-            saveDataDB();
+    if (!more_data) endParsing(parser);
+}
+
+void Application::endParsing(data_parser &parser)
+{
+    parser.level = data_parser::none;
+
+    if (&parser == &main_parser) {
+        if (db_save) {
+            auto time_now = std::chrono::steady_clock::now();
+            int time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_save).count();
+            if (time_elapsed >= saving_time) {
+                time_save = time_now;
+                printMessage(0, "Saving database entries...");
+                saveDataDB();
+            }
         }
+
+        std::string num_str;
+        for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
+            num_str = std::to_string(item->second);
+            printMessage(0, item->first + " = " + num_str.substr(0, num_str.find(".") + 2) + " | ", false);
+        }
+        printMessage(0, "");
     }
-
-    for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
-        std::cout << item->first << " = " << item->second << "  ";
-    }
-
-    std::cout << std::endl;
-
     #ifdef ADMIN_APP
     if (admin) {
-        std::string json_string;
-        setValues(json_string);
-        server->setMessage(json_string);
+        if (&parser == &main_parser) {
+            std::string json_string;
+            setValues(json_string);
+            server->setMessage(json_string);
+        }
+        else checkAdminCommands(parser);
     }
     #endif
 
-    clearParser();
+    clearParser(parser);
 }
 
 int Application::start()
@@ -244,7 +365,7 @@ int Application::start()
 
     int read_bytes = 0;
 
-    std::cout << "Server is starting" << std::endl;
+    printMessage(1, "Server is starting");
     time_start = std::chrono::steady_clock::now();
 
     #ifdef ADMIN_APP
@@ -262,8 +383,17 @@ int Application::start()
             return -1;
         }
         else if (read_bytes) {
-            parseData(reinterpret_cast<const char *>(serial->getBufferAddress()));
+            parseData(main_parser, reinterpret_cast<const char *>(serial->getBufferAddress()));
         }
+
+        #ifdef ADMIN_APP
+        if (admin) {
+            if (server->getAtomicFlag()) {
+                //std::cout << server->getApplicationMessage() << std::endl;
+                parseData(second_parser, server->getApplicationMessage().c_str());
+            }
+        }
+        #endif
     }
 
     #ifdef ADMIN_APP

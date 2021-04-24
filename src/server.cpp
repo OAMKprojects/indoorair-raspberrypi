@@ -21,6 +21,9 @@ Server::Server(int _port)
     crypt.key = DEFAULT_KEY;
     crypt.key_size = crypt.key.length();
     admin_connected = false;
+
+    admin_mesage_set = false;
+    application_message_set = false;
 }
 
 Server::~Server()
@@ -157,6 +160,8 @@ bool Server::handleConnect()
     tv.tv_usec = 0;
     setsockopt(socket_admin, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
+    std::cout << "New connection, IP-address: " << inet_ntoa(admin_addr.sin_addr) << std::endl;
+
     int recv_bytes = read(socket_admin, buffer, BUFFER_SIZE - 1);
     if (recv_bytes < 0) {
         if (errno == EAGAIN) std::cout << "Client didn't response" << std::endl;
@@ -172,7 +177,7 @@ bool Server::handleConnect()
         return false;
     }
 
-    if (strcmp(decodeMessage(buffer).c_str(), PASSWORD) != 0) {
+    if (strncmp(decodeMessage(buffer).c_str(), PASSWORD, recv_bytes) != 0) {
         send(socket_admin, encodeMessage("Invalid Password!").c_str(), strlen("Invalid Password!"), 0);
         std::cout << "Invalid Password! : " << decodeMessage(buffer).c_str() << std::endl;
 
@@ -192,8 +197,6 @@ bool Server::handleConnect()
 void Server::serveAdmin()
 {
     if (admin_mesage_set) {
-
-        //admin_message = "{\"temperature\":" + std::to_string(rand() % 20) + ",\"humidity\":20}";
         int bytes_send = send(socket_admin, encodeMessage(admin_message).c_str(), admin_message.length(), 0);
 
         admin_mesage_set = false;
@@ -205,8 +208,6 @@ void Server::serveAdmin()
             admin_connected = false;
             return;
         }
-
-        std::cout << admin_message << std::endl;
     }
 
     int recv_bytes = read(socket_admin, buffer, BUFFER_SIZE - 1);
@@ -220,27 +221,46 @@ void Server::serveAdmin()
     else if (recv_bytes < 0) {
         if (errno != EAGAIN && errno != EINTR) raiseError(ERR_SOCKET);
     }
+    else setApplicationMessage();
+}
+
+void Server::handleMessage(int lenght)
+{
+    std::cout << decodeMessage(buffer) << std::endl;
 }
 
 void Server::setMessage(const std::string &message)
 {
     if (admin_mesage_set) return;
 
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard<std::mutex> lock(mtx_ser);
     admin_message = message;
     admin_mesage_set = true;
 }
 
+void Server::setApplicationMessage()
+{
+    std::lock_guard<std::mutex> lock(mtx_app);
+    application_message = decodeMessage(buffer);
+    application_message_set = true;
+}
+
+std::string Server::getApplicationMessage()
+{
+    std::lock_guard<std::mutex> lock(mtx_app);
+    application_message_set = false;
+    return application_message;
+}
+
 void Server::stop()
 {
-    std::lock_guard<std::mutex> lock(mtx);
+    std::lock_guard<std::mutex> lock(mtx_ser);
     running = false;
 }
 
 void Server::start()
 {
     addr_size = sizeof(admin_addr);
-    admin_mesage_set = false;
     int data_size, activity;
     int sd, max_sd;
 

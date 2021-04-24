@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <thread>
 #include <mutex>
+#include <atomic>
 
 #define BUFFER_SIZE     1024
 
@@ -43,6 +44,8 @@ class Server
         void start();
         void stop();
         void setMessage(const std::string &message);
+        std::string getApplicationMessage();
+        bool getAtomicFlag() {return application_message_set;}
 
     private:
         void freeResources();
@@ -53,6 +56,8 @@ class Server
         void openServerSocket();
         void initServerSocket();
         void serveAdmin();
+        void handleMessage(int length);
+        void setApplicationMessage();
 
         std::string encodeMessage(const std::string &message);
         std::string decodeMessage(const std::string &message);
@@ -74,12 +79,14 @@ class Server
         int                 oldf;
         bool                canonical_mode;
         bool                admin_connected;
-        bool                admin_mesage_set;
-        bool                running;
+        std::atomic<bool>   admin_mesage_set;
+        std::atomic<bool>   application_message_set;
+        std::atomic<bool>   running;
         Crypt               crypt;
         std::string         my_ip;
         std::string         admin_message;
-        std::mutex          mtx;
+        std::string         application_message;
+        std::mutex          mtx_ser, mtx_app;
 };
 
 #endif // SERVER_HPP
