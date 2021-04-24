@@ -160,6 +160,8 @@ bool Server::handleConnect()
     tv.tv_usec = 0;
     setsockopt(socket_admin, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
+    std::cout << "New connection, IP-address: " << inet_ntoa(admin_addr.sin_addr) << std::endl;
+
     int recv_bytes = read(socket_admin, buffer, BUFFER_SIZE - 1);
     if (recv_bytes < 0) {
         if (errno == EAGAIN) std::cout << "Client didn't response" << std::endl;
@@ -195,8 +197,6 @@ bool Server::handleConnect()
 void Server::serveAdmin()
 {
     if (admin_mesage_set) {
-
-        //admin_message = "{\"temperature\":" + std::to_string(rand() % 20) + ",\"humidity\":20}";
         int bytes_send = send(socket_admin, encodeMessage(admin_message).c_str(), admin_message.length(), 0);
 
         admin_mesage_set = false;
@@ -208,8 +208,6 @@ void Server::serveAdmin()
             admin_connected = false;
             return;
         }
-
-        //std::cout << admin_message << std::endl;
     }
 
     int recv_bytes = read(socket_admin, buffer, BUFFER_SIZE - 1);

@@ -21,6 +21,7 @@
 
 #define DATABASE_FILE       "indoorair.db"
 #define DEFAULT_SAVE_TIME   10
+#define MAX_SAVE_TIME       99 * 3600 + 99 * 60 + 99
 
 class Application
 {
@@ -66,10 +67,14 @@ class Application
         void endParsing(data_parser &parser);
         void saveDataDB();
         void clearParser(data_parser &parser);
+        void printMessage(int verbose, const std::string &message, bool new_line = true);
 
         #ifdef ADMIN_APP
         void setValues(std::string &json_str);
+        int addSeconds(const std::string &time_str, int time_level);
         std::string getTimeString(long seconds);
+        void setTimeFromString(const std::string &time_str);
+        void checkAdminCommands(data_parser &parser);
         #endif
 
         std::chrono::time_point<std::chrono::steady_clock> time_start;
@@ -81,6 +86,7 @@ class Application
         bool          running;
         bool          db_save;
         long          saving_time;
+        int           verbose_level;
         sqlite3      *db;
 
         #ifdef ADMIN_APP
@@ -88,6 +94,7 @@ class Application
         std::thread              thread_server;
         data_parser              second_parser;
         bool admin;
+        bool control_update;
         #endif
 };
 
