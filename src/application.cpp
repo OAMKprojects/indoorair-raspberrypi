@@ -28,7 +28,12 @@ Application::~Application()
 void Application::setAdmin()
 {
     admin = true;
-    verbose_level = 1;
+    verbose_level = 0;
+    com_string = "";
+    suffix_map["temperature"] = " C";
+    suffix_map["NTC temperature"] = " C";
+    suffix_map["humidity"] = " %";
+    suffix_map["NTC resistance"] = " Ohm";
     server.reset(new Server(PORT_NUMBER));
 }
 
@@ -38,16 +43,31 @@ void Application::setValues(std::string &json_str)
     main_parser.temp_string.erase(std::remove(main_parser.temp_string.begin(), main_parser.temp_string.end(), '\r'), main_parser.temp_string.end());
 
     json_str += "{\"values\":{";
-    std::string num_str;
+    std::string num_str, suffix;
+    StringMap::iterator item, suf_item;
 
     auto time_now = std::chrono::steady_clock::now();
     long time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_now - time_start).count();
 
-    json_str += "\"uptime\":\"" + getTimeString(time_elapsed) + "\",";
+    json_str += "\"server uptime\":\"" + getTimeString(time_elapsed) + "\",";
+
+    if ((item = main_parser.strings.find("uptime")) != main_parser.strings.end()) {
+        long num = 0;
+        try {
+            num = std::stod(item->second);
+        }
+        catch (...){
+        }
+        json_str += "\"nucleo uptime\":\"" + getTimeString(num) + "\",";
+    }
 
     for (auto item = main_parser.values.rbegin(); item != main_parser.values.rend(); item++) {
-        num_str = std::to_string(item->second);
-        json_str += "\"" + item->first + "\"" + ":" + num_str.substr(0, num_str.find(".") + 2) + ",";
+        if (item->first != "error") {
+            num_str = std::to_string(item->second);
+            suffix = "";
+            if ((suf_item = suffix_map.find(item->first)) != suffix_map.end()) suffix = suf_item->second;
+            json_str += "\"" + item->first + "\"" + ":\"" + num_str.substr(0, num_str.find(".") + 2) + suffix + "\",";
+        }
     }
 
     json_str.pop_back();
@@ -129,13 +149,18 @@ void Application::setTimeFromString(const std::string &time_str)
 
 void Application::checkAdminCommands(data_parser &parser)
 {
-    std::map<std::string, std::string>::iterator item;
+    StringMap::iterator item;
 
     printMessage(1, "Admin commands: ", false);
     for (item = parser.strings.begin(); item != parser.strings.end(); item++) {
         printMessage(1, item->first + " = " + item->second + " | ", false);
     }
     printMessage(1, "");
+
+    if ((item = parser.strings.find("command")) != parser.strings.end()) {
+        if (item->second == "connected") com_string += 'A';
+        else if (item->second == "disconnected") com_string += 'D';
+    }
 
     if ((item = parser.strings.find("controls updated")) != parser.strings.end()) {
         if (item->second == "true") control_update = false;
@@ -156,8 +181,14 @@ void Application::checkAdminCommands(data_parser &parser)
     if ((item = parser.strings.find("restart nucleo")) != parser.strings.end()) {
         if (item->second == "true") {
             printMessage(1, "Restarting nucleo...");
+            com_string += 'R';
             control_update = true;
         }
+    }
+
+    if (!com_string.empty()) {
+        serial->writePort(com_string);
+        com_string.clear();
     }
 }
 #endif
@@ -341,6 +372,9 @@ void Application::endParsing(data_parser &parser)
         for (auto item = parser.values.begin(); item != parser.values.end(); item++) {
             num_str = std::to_string(item->second);
             printMessage(0, item->first + " = " + num_str.substr(0, num_str.find(".") + 2) + " | ", false);
+        }
+        for (auto item = parser.strings.begin(); item != parser.strings.end(); item++) {
+            printMessage(0, item->first + " = " + item->second + " | ", false);
         }
         printMessage(0, "");
     }
