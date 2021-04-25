@@ -18,6 +18,7 @@
 #define _ERR_GET_TCG     2
 #define _ERR_SET_TCG     3
 #define _ERR_READ        4
+#define _ERR_WRITE       5
 
 class Serial
 {
@@ -27,6 +28,7 @@ class Serial
 
         int openPort(std::string port_name);
         int readPort();
+        int writePort(const std::string &com_chars);
         uint8_t* getBufferAddress() {return buffer;}
 
     private:

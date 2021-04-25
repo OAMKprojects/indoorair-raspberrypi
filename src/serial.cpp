@@ -15,6 +15,7 @@ void Serial::printError(const int err_num)
         case _ERR_GET_TCG: perror("Error when getting address"); break;
         case _ERR_SET_TCG: perror("Error when setting address"); break;
         case _ERR_READ: perror("Error when reading serial port"); break;
+        case _ERR_WRITE: perror("Error when writing serial port"); break;
     }
 }
 
@@ -22,7 +23,7 @@ int Serial::openPort(std::string port_name)
 {
     std::string port_file = "/dev/" + port_name;
     
-    if ((port_num = open(port_file.c_str(), O_RDONLY)) < 0) {
+    if ((port_num = open(port_file.c_str(), O_RDWR)) < 0) {
         printError(_ERR_OPEN_PORT);
         return -error_num;
     }
@@ -51,6 +52,16 @@ int Serial::openPort(std::string port_name)
     }
 
     return 0;
+}
+
+int Serial::writePort(const std::string &com_chars)
+{
+    int num_bytes = write(port_num, com_chars.c_str(), com_chars.length());
+    if (num_bytes < 0) {
+        printError(_ERR_WRITE);
+        return -error_num;
+    }
+    return num_bytes;
 }
 
 int Serial::readPort()

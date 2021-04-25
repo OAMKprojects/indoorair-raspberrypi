@@ -23,6 +23,9 @@
 #define DEFAULT_SAVE_TIME   10
 #define MAX_SAVE_TIME       99 * 3600 + 99 * 60 + 99
 
+typedef std::map<std::string, std::string> StringMap;
+typedef std::map<std::string, float> FloatMap;
+
 class Application
 {
     public:
@@ -56,8 +59,8 @@ class Application
             std::string temp_name;
             std::string temp_value;
             std::string temp_string;
-            std::map<std::string, float> values;
-            std::map<std::string, std::string> strings;
+            FloatMap    values;
+            StringMap   strings;
         };
 
         bool openDatabase(const std::string db_name);
@@ -90,11 +93,13 @@ class Application
         sqlite3      *db;
 
         #ifdef ADMIN_APP
-        std::unique_ptr<Server>  server;
-        std::thread              thread_server;
-        data_parser              second_parser;
-        bool admin;
-        bool control_update;
+        std::unique_ptr<Server> server;
+        std::thread             thread_server;
+        data_parser             second_parser;
+        StringMap               suffix_map;
+        bool                    admin;
+        bool                    control_update;
+        std::string             com_string; 
         #endif
 };
 

@@ -190,6 +190,7 @@ bool Server::handleConnect()
 
     send(socket_admin, encodeMessage(WELCOME_PHRASE).c_str(), strlen(WELCOME_PHRASE), 0);
     std::cout << "Correct password, admin connected" << std::endl;
+    setApplicationCommand("connected");
 
     return true;
 }
@@ -214,6 +215,7 @@ void Server::serveAdmin()
     if (recv_bytes == 0) {
         std::cout << "Admin disconnected!" << std::endl;
 
+        setApplicationCommand("disconnected");
         close(socket_admin);
         admin_connected = false;
         return;
@@ -241,15 +243,34 @@ void Server::setMessage(const std::string &message)
 void Server::setApplicationMessage()
 {
     std::lock_guard<std::mutex> lock(mtx_app);
-    application_message = decodeMessage(buffer);
+    if (application_message.empty()) application_message = decodeMessage(buffer);
+    else {
+        std::string message = decodeMessage(buffer);
+        application_message.pop_back();
+        if (message.size()) message.erase(0, 1);
+        application_message += message;
+    }
+    application_message_set = true;
+}
+
+void Server::setApplicationCommand(const std::string &command)
+{
+    std::lock_guard<std::mutex> lock(mtx_app);
+    if (application_message.empty()) application_message = "{\"command\":\"" + command + "\"}";
+    else {
+        application_message.pop_back();
+        application_message = ",\"command\":\"" + command + "\"}";
+    }
     application_message_set = true;
 }
 
 std::string Server::getApplicationMessage()
 {
     std::lock_guard<std::mutex> lock(mtx_app);
+    std::string return_message = application_message;
+    application_message.clear();
     application_message_set = false;
-    return application_message;
+    return return_message;
 }
 
 void Server::stop()

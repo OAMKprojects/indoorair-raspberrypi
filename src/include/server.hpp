@@ -58,6 +58,7 @@ class Server
         void serveAdmin();
         void handleMessage(int length);
         void setApplicationMessage();
+        void setApplicationCommand(const std::string &command);
 
         std::string encodeMessage(const std::string &message);
         std::string decodeMessage(const std::string &message);
