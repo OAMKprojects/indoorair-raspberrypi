@@ -51,23 +51,26 @@ void Application::setValues(std::string &json_str)
 
     json_str += "\"server uptime\":\"" + getTimeString(time_elapsed) + "\",";
 
-    if ((item = main_parser.strings.find("uptime")) != main_parser.strings.end()) {
-        long num = 0;
-        try {
-            num = std::stod(item->second);
+    for (auto item = main_parser.strings.rbegin(); item != main_parser.strings.rend(); item++) {
+        if (item->first == "uptime") {
+            long num = 0;
+            try {
+                num = std::stod(item->second);
+            }
+            catch (...){
+            }
+            json_str += "\"nucleo uptime\":\"" + getTimeString(num) + "\",";
         }
-        catch (...){
+        else {
+            json_str += "\"" + item->first + "\"" + ":\"" + item->second + "\",";
         }
-        json_str += "\"nucleo uptime\":\"" + getTimeString(num) + "\",";
     }
 
     for (auto item = main_parser.values.rbegin(); item != main_parser.values.rend(); item++) {
-        if (item->first != "error") {
-            num_str = std::to_string(item->second);
-            suffix = "";
-            if ((suf_item = suffix_map.find(item->first)) != suffix_map.end()) suffix = suf_item->second;
-            json_str += "\"" + item->first + "\"" + ":\"" + num_str.substr(0, num_str.find(".") + 2) + suffix + "\",";
-        }
+        num_str = std::to_string(item->second);
+        suffix = "";
+        if ((suf_item = suffix_map.find(item->first)) != suffix_map.end()) suffix = suf_item->second;
+        json_str += "\"" + item->first + "\"" + ":\"" + num_str.substr(0, num_str.find(".") + 2) + suffix + "\",";
     }
 
     json_str.pop_back();
@@ -159,7 +162,10 @@ void Application::checkAdminCommands(data_parser &parser)
 
     if ((item = parser.strings.find("command")) != parser.strings.end()) {
         if (item->second == "connected") com_string += 'A';
-        else if (item->second == "disconnected") com_string += 'D';
+        else if (item->second == "disconnected") {
+            com_string += 'D';
+            control_update = true;
+        }
     }
 
     if ((item = parser.strings.find("controls updated")) != parser.strings.end()) {
